@@ -1,12 +1,12 @@
 import express from "express";
+import passport from "passport";
 import crypto from "crypto";
 import { load, save } from "../database/jsonDB.js";
-import passport from "passport";
 
 const router = express.Router();
 
 // ==================================================
-// INICIAR LOGIN STEAM (SEM SESSÃO)
+// INICIAR LOGIN STEAM (cookie assinado)
 // ==================================================
 router.get("/steam/start", (req, res, next) => {
   const { discord_id } = req.query;
@@ -16,7 +16,6 @@ router.get("/steam/start", (req, res, next) => {
 
   const loginId = crypto.randomUUID();
 
-  // Salva login temporário
   const logins = load("logins.json");
   logins[loginId] = {
     discord_id,
@@ -24,16 +23,16 @@ router.get("/steam/start", (req, res, next) => {
   };
   save("logins.json", logins);
 
-  // Injeta login_id para o passport usar no returnURL
-  req.loginId = loginId;
-  next();
-}, (req, res, next) => {
-  const loginId = req.loginId;
+  // 🔑 guarda em COOKIE ASSINADO (não é sessão)
+  res.cookie("login_id", loginId, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    signed: true
+  });
 
-  passport.authenticate("steam", {
-    callbackURL: `${process.env.BASE_URL}/auth/steam/callback?login_id=${loginId}`
-  })(req, res, next);
-});
+  next();
+}, passport.authenticate("steam"));
 
 // ==================================================
 // CALLBACK STEAM
@@ -42,13 +41,14 @@ router.get(
   "/steam/callback",
   passport.authenticate("steam", { failureRedirect: "/auth/steam/failure" }),
   (req, res) => {
-    const { login_id } = req.query;
-    if (!login_id) {
+    const loginId = req.signedCookies.login_id;
+
+    if (!loginId) {
       return res.status(400).send("login_id ausente");
     }
 
     const logins = load("logins.json");
-    const login = logins[login_id];
+    const login = logins[loginId];
 
     if (!login) {
       return res.status(400).send("login inválido ou expirado");
@@ -66,15 +66,16 @@ router.get(
     };
     save("users.json", users);
 
-    // Limpa login temporário
-    delete logins[login_id];
+    delete logins[loginId];
     save("logins.json", logins);
+
+    // limpa cookie
+    res.clearCookie("login_id");
 
     res.send("Steam vinculada com sucesso. Você pode fechar esta página.");
   }
 );
 
-// ==================================================
 router.get("/steam/failure", (req, res) => {
   res.status(401).send("Falha ao autenticar com a Steam.");
 });
