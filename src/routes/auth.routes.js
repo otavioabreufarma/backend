@@ -6,40 +6,47 @@ import { load, save } from "../database/jsonDB.js";
 const router = express.Router();
 
 // ==================================================
-// INICIAR LOGIN STEAM (cookie assinado)
+// INICIAR LOGIN STEAM (COOKIE ASSINADO, SEM SESSÃO)
 // ==================================================
-router.get("/steam/start", (req, res, next) => {
-  const { discord_id } = req.query;
-  if (!discord_id) {
-    return res.status(400).send("discord_id obrigatório");
-  }
+router.get(
+  "/steam/start",
+  (req, res, next) => {
+    const { discord_id } = req.query;
+    if (!discord_id) {
+      return res.status(400).send("discord_id obrigatório");
+    }
 
-  const loginId = crypto.randomUUID();
+    const loginId = crypto.randomUUID();
 
-  const logins = load("logins.json");
-  logins[loginId] = {
-    discord_id,
-    created_at: Date.now()
-  };
-  save("logins.json", logins);
+    const logins = load("logins.json");
+    logins[loginId] = {
+      discord_id,
+      created_at: Date.now()
+    };
+    save("logins.json", logins);
 
-  // 🔑 guarda em COOKIE ASSINADO (não é sessão)
-  res.cookie("login_id", loginId, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    signed: true
-  });
+    // cookie assinado
+    res.cookie("login_id", loginId, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      signed: true
+    });
 
-  next();
-}, passport.authenticate("steam"));
+    next();
+  },
+  passport.authenticate("steam", { session: false }) // 🔑 ESSENCIAL
+);
 
 // ==================================================
 // CALLBACK STEAM
 // ==================================================
 router.get(
   "/steam/callback",
-  passport.authenticate("steam", { failureRedirect: "/auth/steam/failure" }),
+  passport.authenticate("steam", {
+    failureRedirect: "/auth/steam/failure",
+    session: false // 🔑 ESSENCIAL
+  }),
   (req, res) => {
     const loginId = req.signedCookies.login_id;
 
@@ -69,13 +76,13 @@ router.get(
     delete logins[loginId];
     save("logins.json", logins);
 
-    // limpa cookie
     res.clearCookie("login_id");
 
     res.send("Steam vinculada com sucesso. Você pode fechar esta página.");
   }
 );
 
+// ==================================================
 router.get("/steam/failure", (req, res) => {
   res.status(401).send("Falha ao autenticar com a Steam.");
 });
