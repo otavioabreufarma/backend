@@ -16,10 +16,19 @@ router.get("/steam", (req, res, next) => {
       .send("discord_id é obrigatório para vincular a conta.");
   }
 
-  // 🔑 SALVA NA SESSION (PONTO CRÍTICO)
+  // Salva na sessão
   req.session.discord_id = discord_id;
 
-  next();
+  // 🔑 PONTO CRÍTICO: FORÇA SALVAR A SESSÃO
+  req.session.save(err => {
+    if (err) {
+      console.error("Erro ao salvar sessão:", err);
+      return res.status(500).send("Erro ao salvar sessão.");
+    }
+
+    // Só agora redireciona para a Steam
+    next();
+  });
 }, passport.authenticate("steam"));
 
 // ==================================================
