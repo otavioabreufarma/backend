@@ -4,7 +4,7 @@ import { load, save } from "../database/jsonDB.js";
 const router = express.Router();
 
 // ⚠️ WEBHOOK PÚBLICO — SEM TOKEN
-router.post("/payment/webhook", (req, res) => {
+router.post("/infinitepay", (req, res) => {
   try {
     const payload = req.body;
 
