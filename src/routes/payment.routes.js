@@ -2,20 +2,30 @@ import express from "express";
 import axios from "axios";
 import env from "../config/env.js";
 import { load, save } from "../database/jsonDB.js";
+import { handleWebhook } from "../services/webhook.service.js";
 
 const router = express.Router();
 
-// ===============================
-// CRIAR CHECKOUT (BOT DISCORD)
-// ===============================
-router.post("/create", async (req, res) => {
-  try {
-    // 🔐 SEGURANÇA APENAS AQUI
-    const token = req.headers["x-internal-token"];
-    if (token !== env.INTERNAL_DISCORD_TOKEN) {
-      return res.sendStatus(403);
-    }
+/**
+ * ==================================================
+ * 🔒 SEGURANÇA (APENAS PARA ROTAS INTERNAS)
+ * ==================================================
+ */
+function internalAuth(req, res, next) {
+  const token = req.headers["x-internal-token"];
+  if (token !== env.INTERNAL_DISCORD_TOKEN) {
+    return res.sendStatus(403);
+  }
+  next();
+}
 
+/**
+ * ==================================================
+ * 💳 CRIAR CHECKOUT (BOT DISCORD)
+ * ==================================================
+ */
+router.post("/create", internalAuth, async (req, res) => {
+  try {
     const { discord_id, vip_type } = req.body;
 
     if (!discord_id || !vip_type) {
@@ -50,10 +60,16 @@ router.post("/create", async (req, res) => {
 
     const order_nsu = `${vip_type}_${discord_id}_${Date.now()}`;
 
+    /**
+     * ==================================================
+     * 📦 PAYLOAD INFINITEPAY (OFICIAL)
+     * ==================================================
+     */
     const payload = {
       handle: env.INFINITEPAY_HANDLE,
       order_nsu,
       redirect_url: env.PAYMENT_REDIRECT_URL,
+      webhook_url: `${env.BASE_URL}/payment/webhook`,
       items: [
         {
           quantity: 1,
@@ -85,11 +101,29 @@ router.post("/create", async (req, res) => {
 
     save("payments.json", payments);
 
-    res.json({ url: checkoutUrl });
+    return res.json({ url: checkoutUrl });
 
   } catch (err) {
     console.error("Erro InfinitePay:", err.response?.data || err.message);
-    res.status(502).json({ error: "Falha ao criar checkout" });
+    return res.status(502).json({ error: "Falha ao criar checkout" });
+  }
+});
+
+/**
+ * ==================================================
+ * 🔔 WEBHOOK INFINITEPAY (PÚBLICO)
+ * ==================================================
+ * ⚠️ NÃO TEM TOKEN
+ * ⚠️ NÃO TEM AUTH
+ * ⚠️ A InfinitePay PRECISA ACESSAR
+ */
+router.post("/webhook", async (req, res) => {
+  try {
+    handleWebhook(req.body);
+    return res.sendStatus(200);
+  } catch (err) {
+    console.error("Erro no webhook InfinitePay:", err);
+    return res.sendStatus(400);
   }
 });
 
