@@ -5,132 +5,95 @@ import { load, save } from "../database/jsonDB.js";
 
 const router = express.Router();
 
-// ==================================================
-// MIDDLEWARE DE SEGURANÇA (DISCORD / RUST)
-// ==================================================
+// ===============================
+// SEGURANÇA (TOKEN INTERNO)
+// ===============================
 router.use((req, res, next) => {
   const token = req.headers["x-internal-token"];
-
-  if (
-    token !== env.INTERNAL_DISCORD_TOKEN &&
-    token !== env.INTERNAL_RUST_TOKEN
-  ) {
+  if (token !== env.INTERNAL_DISCORD_TOKEN) {
     return res.sendStatus(403);
   }
-
   next();
 });
 
-// ==================================================
-// CRIAR PAGAMENTO (CHECKOUT INFINITEPAY)
-// ==================================================
+// ===============================
+// CRIAR CHECKOUT
+// ===============================
 router.post("/create", async (req, res) => {
   try {
     const { discord_id, vip_type } = req.body;
 
-    // -------------------------------
-    // VALIDAÇÕES
-    // -------------------------------
     if (!discord_id || !vip_type) {
-      return res.status(400).json({
-        error: "discord_id e vip_type são obrigatórios"
-      });
+      return res.status(400).json({ error: "Dados inválidos" });
     }
 
-    if (vip_type !== "VIP" && vip_type !== "VIP+") {
-      return res.status(400).json({
-        error: "vip_type inválido"
-      });
-    }
-
-    // -------------------------------
-    // BUSCAR USUÁRIO PELO DISCORD ID
-    // -------------------------------
     const users = load("users.json");
-
     const user = Object.values(users).find(
       u => u.discord_id === discord_id
     );
 
-    if (!user) {
+    if (!user || !user.steam_id) {
       return res.status(400).json({
-        error: "Conta Steam não vinculada"
+        error: "Usuário não vinculado ao Steam"
       });
     }
 
-    const steamId = user.steam_id;
+    const prices = {
+      VIP: 1500,
+      VIP_PLUS: 3000
+    };
 
-    // -------------------------------
-    // DEFINIR VALOR DO VIP
-    // -------------------------------
-    const amount = vip_type === "VIP+" ? 3000 : 1500;
+    const descriptions = {
+      VIP: "VIP 30 dias",
+      VIP_PLUS: "VIP+ 30 dias"
+    };
 
-    // -------------------------------
-    // GERAR ORDER NSU ÚNICO
-    // -------------------------------
-    const order_nsu = `vip_${steamId}_${Date.now()}`;
+    const price = prices[vip_type];
+    if (!price) {
+      return res.status(400).json({ error: "Tipo de VIP inválido" });
+    }
 
-    // -------------------------------
-    // REGISTRAR PAGAMENTO (PENDENTE)
-    // -------------------------------
-    const payments = load("payments.json");
+    const order_nsu = `${vip_type}_${discord_id}_${Date.now()}`;
 
-    payments.push({
+    const payload = {
+      handle: env.INFINITEPAY_HANDLE,
       order_nsu,
-      steam_id: steamId,
-      vip_type,
-      amount,
-      status: "pending",
-      created_at: new Date().toISOString()
-    });
+      redirect_url: env.PAYMENT_REDIRECT_URL,
+      items: [
+        {
+          quantity: 1,
+          price,
+          description: descriptions[vip_type]
+        }
+      ]
+    };
 
-    save("payments.json", payments);
-
-    // -------------------------------
-    // CRIAR CHECKOUT NA INFINITEPAY
-    // -------------------------------
     const response = await axios.post(
       "https://api.infinitepay.io/invoices/public/checkout/links",
-      {
-        handle: env.INFINITEPAY_HANDLE, // SEM $
-        order_nsu,
-        amount, // ⚠️ OBRIGATÓRIO NO TOPO
-        redirect_url: env.PAYMENT_REDIRECT_URL,
-        webhook_url: `${env.BASE_URL}/payment/webhook`,
-
-        // ⚠️ FORMATO CORRETO PARA CHECKOUT
-        items: [
-          {
-            name: vip_type === "VIP+" ? "VIP Plus" : "VIP",
-            quantity: 1,
-            price: amount
-          }
-        ]
-      },
-      {
-        headers: {
-          "Content-Type": "application/json"
-        },
-        timeout: 10000
-      }
+      payload,
+      { timeout: 10000 }
     );
 
-    // -------------------------------
-    // SUCESSO
-    // -------------------------------
-    return res.json({
-      checkout_url: response.data.checkout_url
-    });
+    const checkoutUrl = response.data?.url;
+    if (!checkoutUrl) {
+      throw new Error("Checkout não retornou URL");
+    }
+
+    const payments = load("payments.json");
+    payments[order_nsu] = {
+      discord_id,
+      steam_id: user.steam_id,
+      vip_type,
+      status: "pending",
+      created_at: new Date().toISOString()
+    };
+    save("payments.json", payments);
+
+    res.json({ url: checkoutUrl });
 
   } catch (err) {
-    console.error(
-      "[PAYMENT_CREATE_ERROR]",
-      err.response?.data || err.message
-    );
-
-    return res.status(502).json({
-      error: "Falha ao criar checkout"
-    });
+    console.error("Erro InfinitePay:", err.response?.data || err.message);
+    res.status(502).json({ error: "Falha ao criar checkout" });
   }
 });
 
