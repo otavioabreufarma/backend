@@ -6,6 +6,22 @@ import { load, save } from "../database/jsonDB.js";
 const router = express.Router();
 
 // ==================================================
+// MIDDLEWARE DE SEGURANÇA (DISCORD / RUST)
+// ==================================================
+router.use((req, res, next) => {
+  const token = req.headers["x-internal-token"];
+
+  if (
+    token !== env.INTERNAL_DISCORD_TOKEN &&
+    token !== env.INTERNAL_RUST_TOKEN
+  ) {
+    return res.sendStatus(403);
+  }
+
+  next();
+});
+
+// ==================================================
 // CRIAR PAGAMENTO (CHECKOUT INFINITEPAY)
 // ==================================================
 router.post("/create", async (req, res) => {
@@ -13,7 +29,7 @@ router.post("/create", async (req, res) => {
     const { discord_id, vip_type } = req.body;
 
     // -------------------------------
-    // VALIDAÇÃO BÁSICA
+    // VALIDAÇÕES
     // -------------------------------
     if (!discord_id || !vip_type) {
       return res.status(400).json({
@@ -50,12 +66,12 @@ router.post("/create", async (req, res) => {
     const amount = vip_type === "VIP+" ? 3000 : 1500;
 
     // -------------------------------
-    // GERAR ORDER NSU (ÚNICO)
+    // GERAR ORDER NSU ÚNICO
     // -------------------------------
     const order_nsu = `vip_${steamId}_${Date.now()}`;
 
     // -------------------------------
-    // REGISTRAR PAGAMENTO PENDENTE
+    // REGISTRAR PAGAMENTO (PENDENTE)
     // -------------------------------
     const payments = load("payments.json");
 
@@ -78,15 +94,16 @@ router.post("/create", async (req, res) => {
       {
         handle: env.INFINITEPAY_HANDLE, // SEM $
         order_nsu,
+        amount, // ⚠️ OBRIGATÓRIO NO TOPO
         redirect_url: env.PAYMENT_REDIRECT_URL,
         webhook_url: `${env.BASE_URL}/payment/webhook`,
 
-        // ⚠️ CAMPO OBRIGATÓRIO
+        // ⚠️ FORMATO CORRETO PARA CHECKOUT
         items: [
           {
             name: vip_type === "VIP+" ? "VIP Plus" : "VIP",
             quantity: 1,
-            unit_price: amount
+            price: amount
           }
         ]
       },
@@ -99,7 +116,7 @@ router.post("/create", async (req, res) => {
     );
 
     // -------------------------------
-    // RETORNAR LINK DE PAGAMENTO
+    // SUCESSO
     // -------------------------------
     return res.json({
       checkout_url: response.data.checkout_url
@@ -107,7 +124,7 @@ router.post("/create", async (req, res) => {
 
   } catch (err) {
     console.error(
-      "Erro InfinitePay:",
+      "[PAYMENT_CREATE_ERROR]",
       err.response?.data || err.message
     );
 
