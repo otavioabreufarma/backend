@@ -13,19 +13,22 @@ import internalRoutes from "./routes/internal.routes.js";
 
 const app = express();
 
-// ===============================
-// CONFIGURAÇÕES BÁSICAS
-// ===============================
+// ==================================================
+// CONFIGURAÇÕES BÁSICAS (RENDER / HTTPS / PROXY)
+// ==================================================
 
-// Necessário para funcionar corretamente atrás do proxy HTTPS do Render
 app.set("trust proxy", 1);
 
-// Body parser
-app.use(express.json());
+// ==================================================
+// BODY PARSERS (OBRIGATÓRIO PARA STEAM OPENID)
+// ==================================================
 
-// ===============================
+app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // 🔴 ESSENCIAL
+
+// ==================================================
 // SESSION STORE EM ARQUIVO (PRODUÇÃO)
-// ===============================
+// ==================================================
 
 const FileStore = FileStoreFactory(session);
 
@@ -35,35 +38,35 @@ app.use(
     store: new FileStore({
       path: "./data/sessions",
       retries: 0,
-      ttl: 60 * 60 * 24, // 24h
+      ttl: 60 * 60 * 24, // 24 horas
       logFn: function () {} // silencia logs internos
     }),
     secret: env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: true,        // HTTPS obrigatório
+      secure: true,      // HTTPS obrigatório (Render)
       httpOnly: true,
-      sameSite: "none"     // necessário para Steam OpenID
+      sameSite: "none"   // Obrigatório para OpenID (Steam)
     }
   })
 );
 
-// ===============================
+// ==================================================
 // PASSPORT (STEAM OPENID)
-// ===============================
+// ==================================================
 
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ===============================
+// ==================================================
 // ROTAS
-// ===============================
+// ==================================================
 
 // Autenticação Steam
 app.use("/auth", authRoutes);
 
-// Criação de pagamento (checkout)
+// Criação de pagamento (InfinitePay Checkout)
 app.use("/payment", paymentRoutes);
 
 // Webhook InfinitePay
@@ -72,12 +75,12 @@ app.use(webhookRoutes);
 // Fallback de verificação de pagamento
 app.use(paymentCheckRoutes);
 
-// Rotas internas (Discord Bot / Plugin Rust)
+// Rotas internas (Plugin Rust / Bot Discord)
 app.use("/internal", internalRoutes);
 
-// ===============================
-// HEALTH CHECK (OPCIONAL)
-// ===============================
+// ==================================================
+// HEALTH CHECK
+// ==================================================
 
 app.get("/", (req, res) => {
   res.json({
