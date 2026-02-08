@@ -22,11 +22,11 @@ app.set("trust proxy", 1);
 // Body parser
 app.use(express.json());
 
-// Cookies assinados (USADO NO LOGIN STEAM)
+// Cookie assinado (usado para login_id)
 app.use(cookieParser(env.SESSION_SECRET));
 
 // ==================================================
-// PASSPORT (STEAM OPENID)
+// PASSPORT (SEM SESSION)
 // ==================================================
 
 app.use(passport.initialize());
@@ -35,19 +35,19 @@ app.use(passport.initialize());
 // ROTAS
 // ==================================================
 
-// Autenticação Steam (fluxo sem sessão)
+// Steam OpenID
 app.use("/auth", authRoutes);
 
-// Criação de pagamento (InfinitePay Checkout)
+// InfinitePay
 app.use("/payment", paymentRoutes);
 
 // Webhook InfinitePay
 app.use(webhookRoutes);
 
-// Fallback de verificação de pagamento
+// Fallback de pagamento
 app.use(paymentCheckRoutes);
 
-// Rotas internas (Discord Bot / Plugin Rust)
+// Rotas internas (Discord / Rust)
 app.use("/internal", internalRoutes);
 
 // ==================================================
