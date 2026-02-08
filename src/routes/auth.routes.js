@@ -4,73 +4,68 @@ import { load, save } from "../database/jsonDB.js";
 
 const router = express.Router();
 
-// ===============================
-// INÍCIO DO LOGIN STEAM
-// ===============================
-
+// ==================================================
+// INÍCIO LOGIN STEAM
+// ==================================================
 router.get("/steam", (req, res, next) => {
-  // Se veio do Discord, salva o discord_id na sessão
-  if (req.query.discord_id) {
-    req.session.discord_id = req.query.discord_id;
+  const { discord_id } = req.query;
+
+  if (!discord_id) {
+    return res
+      .status(400)
+      .send("discord_id é obrigatório para vincular a conta.");
   }
+
+  // 🔑 SALVA NA SESSION (PONTO CRÍTICO)
+  req.session.discord_id = discord_id;
 
   next();
 }, passport.authenticate("steam"));
 
-// ===============================
-// CALLBACK DO STEAM (GET)
-// ===============================
-
+// ==================================================
+// CALLBACK STEAM
+// ==================================================
 router.get(
   "/steam/callback",
   passport.authenticate("steam", {
-    failureRedirect: "/auth/steam/error",
-    session: true
+    failureRedirect: "/auth/steam/failure"
   }),
   (req, res) => {
-    try {
-      const steamProfile = req.user;
-      const discordId = req.session.discord_id || null;
+    const steamId = req.user.steamid;
+    const steamName = req.user.username;
+    const discordId = req.session.discord_id;
 
-      if (!steamProfile || !steamProfile.id) {
-        return res.redirect("/auth/steam/error");
-      }
-
-      const users = load("users.json");
-
-      users[steamProfile.id] = {
-        steam_id: steamProfile.id,
-        steam_name: steamProfile.displayName,
-        discord_id: discordId,
-        linked_at: new Date().toISOString()
-      };
-
-      save("users.json", users);
-
-      // Limpa a sessão temporária
-      delete req.session.discord_id;
-
-      res.send("Steam vinculado com sucesso. Você pode fechar esta página.");
-    } catch (err) {
-      console.error("Erro no callback Steam:", err);
-      res.redirect("/auth/steam/error");
+    if (!discordId) {
+      return res
+        .status(500)
+        .send("Erro crítico: discord_id não encontrado na sessão.");
     }
+
+    const users = load("users.json");
+
+    users[steamId] = {
+      steam_id: steamId,
+      steam_name: steamName,
+      discord_id: discordId,
+      linked_at: new Date().toISOString()
+    };
+
+    save("users.json", users);
+
+    // Limpa a sessão
+    delete req.session.discord_id;
+
+    res.send(
+      "Steam vinculada com sucesso. Você pode fechar esta página."
+    );
   }
 );
 
-// ===============================
-// ROTA DE ERRO (DEBUG VISÍVEL)
-// ===============================
-
-router.get("/steam/error", (req, res) => {
-  res.status(500).send(
-    "Erro ao autenticar com a Steam.\n\n" +
-    "Possíveis causas:\n" +
-    "- Sessão inválida\n" +
-    "- Cookie bloqueado\n" +
-    "- Callback mal configurado\n\n" +
-    "Verifique os logs do backend."
-  );
+// ==================================================
+// FALHA
+// ==================================================
+router.get("/steam/failure", (req, res) => {
+  res.status(401).send("Falha ao autenticar com a Steam.");
 });
 
 export default router;
