@@ -3,19 +3,7 @@ import SteamStrategy from "passport-steam";
 import env from "../config/env.js";
 
 // ==================================================
-// SERIALIZAÇÃO (OBRIGATÓRIA)
-// ==================================================
-
-passport.serializeUser((user, done) => {
-  done(null, user);
-});
-
-passport.deserializeUser((obj, done) => {
-  done(null, obj);
-});
-
-// ==================================================
-// STRATEGY STEAM
+// STRATEGY STEAM (SEM SESSION)
 // ==================================================
 
 passport.use(
@@ -23,10 +11,9 @@ passport.use(
     {
       returnURL: `${env.BASE_URL}/auth/steam/callback`,
       realm: env.STEAM_REALM,
-      apiKey: env.STEAM_API_KEY,
-      passReqToCallback: true // 🔑 IMPORTANTE
+      apiKey: env.STEAM_API_KEY
     },
-    (req, identifier, profile, done) => {
+    (identifier, profile, done) => {
       return done(null, {
         steamid: profile.id,
         username: profile.displayName
