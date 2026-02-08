@@ -6,18 +6,7 @@ import { load, save } from "../database/jsonDB.js";
 const router = express.Router();
 
 // ===============================
-// SEGURANÇA (APENAS BOT DISCORD)
-// ===============================
-router.use((req, res, next) => {
-  const token = req.headers["x-internal-token"];
-  if (token !== env.INTERNAL_DISCORD_TOKEN) {
-    return res.sendStatus(403);
-  }
-  next();
-});
-
-// ===============================
-// CRIAR CHECKOUT
+// CRIAR CHECKOUT (SEM SEGURANÇA)
 // ===============================
 router.post("/create", async (req, res) => {
   try {
@@ -74,12 +63,13 @@ router.post("/create", async (req, res) => {
     const payments = load("payments.json");
     payments.push({
       order_nsu,
-      steam_id: user.steam_id,
       discord_id,
+      steam_id: user.steam_id,
       vip_type,
       status: "pending",
       created_at: new Date().toISOString()
     });
+
     save("payments.json", payments);
 
     res.json({ url: response.data.url });
