@@ -37,7 +37,7 @@ app.use("/auth", authRoutes);
 app.use("/payment", paymentRoutes);
 
 // Webhook InfinitePay (PÚBLICO – SEM TOKEN)
-app.use("/webhook", webhookRoutes);
+app.use("/payment", webhookRoutes);
 
 // Fallback de verificação manual
 app.use(paymentCheckRoutes);
