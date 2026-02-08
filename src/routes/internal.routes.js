@@ -8,19 +8,19 @@ const router = express.Router();
 // MIDDLEWARE DE SEGURANÇA (TOKEN INTERNO)
 // ==================================================
 
-router.use((req, res, next) => {
-  const token = req.headers["x-internal-token"];
+//router.use((req, res, next) => {
+  //const token = req.headers["x-internal-token"];
 
-  const allowed =
-    token === env.INTERNAL_RUST_TOKEN ||
-    token === env.INTERNAL_DISCORD_TOKEN;
+  //const allowed =
+    //token === env.INTERNAL_RUST_TOKEN ||
+    //token === env.INTERNAL_DISCORD_TOKEN;
 
-  if (!allowed) {
-    return res.sendStatus(403);
-  }
+  //if (!allowed) {
+    //return res.sendStatus(403);
+  //}
 
-  next();
-});
+  //next();
+//});
 
 // ==================================================
 // CONSULTA VIP POR STEAMID (PLUGIN RUST)
