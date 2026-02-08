@@ -6,21 +6,16 @@ import { load, save } from "../database/jsonDB.js";
 const router = express.Router();
 
 // ===============================
-// SEGURANÇA (TOKEN INTERNO)
-// ===============================
-router.use((req, res, next) => {
-  const token = req.headers["x-internal-token"];
-  if (token !== env.INTERNAL_DISCORD_TOKEN) {
-    return res.sendStatus(403);
-  }
-  next();
-});
-
-// ===============================
-// CRIAR CHECKOUT
+// CRIAR CHECKOUT (BOT DISCORD)
 // ===============================
 router.post("/create", async (req, res) => {
   try {
+    // 🔐 SEGURANÇA APENAS AQUI
+    const token = req.headers["x-internal-token"];
+    if (token !== env.INTERNAL_DISCORD_TOKEN) {
+      return res.sendStatus(403);
+    }
+
     const { discord_id, vip_type } = req.body;
 
     if (!discord_id || !vip_type) {
@@ -87,6 +82,7 @@ router.post("/create", async (req, res) => {
       status: "pending",
       created_at: new Date().toISOString()
     };
+
     save("payments.json", payments);
 
     res.json({ url: checkoutUrl });
