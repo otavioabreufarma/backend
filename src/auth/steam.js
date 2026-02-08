@@ -1,55 +1,38 @@
 import passport from "passport";
-import { Strategy as SteamStrategy } from "passport-steam";
+import SteamStrategy from "passport-steam";
 import env from "../config/env.js";
 
-/**
- * Estratégia Steam OpenID
- */
+// ==================================================
+// SERIALIZAÇÃO (OBRIGATÓRIA)
+// ==================================================
+
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((obj, done) => {
+  done(null, obj);
+});
+
+// ==================================================
+// STRATEGY STEAM
+// ==================================================
+
 passport.use(
   new SteamStrategy(
     {
-      returnURL: env.STEAM_RETURN_URL,
+      returnURL: `${env.BASE_URL}/auth/steam/callback`,
       realm: env.STEAM_REALM,
-      apiKey: env.STEAM_API_KEY
+      apiKey: env.STEAM_API_KEY,
+      passReqToCallback: true // 🔑 IMPORTANTE
     },
-    (identifier, profile, done) => {
-      /**
-       * NUNCA confie em dados vindos do cliente.
-       * O profile vem direto do Steam.
-       */
+    (req, identifier, profile, done) => {
       return done(null, {
-        id: profile.id,
-        displayName: profile.displayName,
-        photos: profile.photos || []
+        steamid: profile.id,
+        username: profile.displayName
       });
     }
   )
 );
-
-/**
- * SERIALIZAÇÃO DA SESSÃO
- * ESSENCIAL para não quebrar após o login Steam
- */
-passport.serializeUser((user, done) => {
-  /**
-   * Armazenamos apenas o necessário na sessão
-   * para evitar corrupção e problemas de memória
-   */
-  done(null, {
-    id: user.id,
-    displayName: user.displayName
-  });
-});
-
-/**
- * DESERIALIZAÇÃO DA SESSÃO
- */
-passport.deserializeUser((user, done) => {
-  /**
-   * Não acessa banco aqui.
-   * Apenas reidrata a sessão.
-   */
-  done(null, user);
-});
 
 export default passport;
