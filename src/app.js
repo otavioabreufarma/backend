@@ -12,42 +12,37 @@ import paymentCheckRoutes from "./routes/payment.check.js";
 import internalRoutes from "./routes/internal.routes.js";
 
 const app = express();
+const FileStore = FileStoreFactory(session);
 
 // ==================================================
-// CONFIGURAÇÕES BÁSICAS (RENDER / HTTPS / PROXY)
+// CONFIGURAÇÕES BÁSICAS
 // ==================================================
 
+// NECESSÁRIO para funcionar atrás do proxy HTTPS do Render
 app.set("trust proxy", 1);
 
-// ==================================================
-// BODY PARSERS (OBRIGATÓRIO PARA STEAM OPENID)
-// ==================================================
-
+// Body parser
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // 🔴 ESSENCIAL
 
 // ==================================================
-// SESSION STORE EM ARQUIVO (PRODUÇÃO)
+// SESSION (OBRIGATÓRIO PARA STEAM OPENID)
 // ==================================================
-
-const FileStore = FileStoreFactory(session);
 
 app.use(
   session({
     name: "rust_vip_session",
     store: new FileStore({
       path: "./data/sessions",
-      retries: 0,
-      ttl: 60 * 60 * 24, // 24 horas
-      logFn: function () {} // silencia logs internos
+      retries: 0
     }),
     secret: env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
+    proxy: true, // 🔑 CRÍTICO para proxy HTTPS
     cookie: {
-      secure: true,      // HTTPS obrigatório (Render)
+      secure: true,        // 🔑 HTTPS obrigatório
       httpOnly: true,
-      sameSite: "none"   // Obrigatório para OpenID (Steam)
+      sameSite: "none"     // 🔑 obrigatório para redirect Steam
     }
   })
 );
@@ -75,7 +70,7 @@ app.use(webhookRoutes);
 // Fallback de verificação de pagamento
 app.use(paymentCheckRoutes);
 
-// Rotas internas (Plugin Rust / Bot Discord)
+// Rotas internas (Discord Bot / Plugin Rust)
 app.use("/internal", internalRoutes);
 
 // ==================================================
