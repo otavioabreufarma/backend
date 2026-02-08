@@ -3,7 +3,7 @@ export default {
   BASE_URL: "https://backend-fhg1.onrender.com",
   STEAM_API_KEY: "DC8C7F81B10230B8D616DB9E6AB96D3D",
   STEAM_REALM: "https://backend-fhg1.onrender.com",
-  STEAM_RETURN_URL: "https://seu-backend.com/auth/steam/callback",
+  STEAM_RETURN_URL: "https://backend-fhg1.onrender.com/auth/steam/callback",
 
   INFINITEPAY_HANDLE: "otavioabreupix",
 
