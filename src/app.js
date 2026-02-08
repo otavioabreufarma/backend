@@ -16,13 +16,8 @@ const app = express();
 // CONFIGURAÇÕES BÁSICAS
 // ==================================================
 
-// Necessário para rodar atrás do proxy HTTPS do Render
 app.set("trust proxy", 1);
-
-// Body parser
 app.use(express.json());
-
-// Cookie assinado (usado para login_id)
 app.use(cookieParser(env.SESSION_SECRET));
 
 // ==================================================
@@ -38,16 +33,16 @@ app.use(passport.initialize());
 // Steam OpenID
 app.use("/auth", authRoutes);
 
-// InfinitePay
+// Pagamentos (BOT – COM TOKEN)
 app.use("/payment", paymentRoutes);
 
-// Webhook InfinitePay
-app.use(webhookRoutes);
+// Webhook InfinitePay (PÚBLICO – SEM TOKEN)
+app.use("/payment", webhookRoutes);
 
-// Fallback de pagamento
+// Fallback de verificação manual
 app.use(paymentCheckRoutes);
 
-// Rotas internas (Discord / Rust)
+// Rotas internas (BOT + PLUGIN)
 app.use("/internal", internalRoutes);
 
 // ==================================================
