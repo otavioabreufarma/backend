@@ -18,14 +18,11 @@ const FileStore = FileStoreFactory(session);
 // CONFIGURAÇÕES BÁSICAS
 // ==================================================
 
-// NECESSÁRIO para funcionar atrás do proxy HTTPS do Render
 app.set("trust proxy", 1);
-
-// Body parser
 app.use(express.json());
 
 // ==================================================
-// SESSION (OBRIGATÓRIO PARA STEAM OPENID)
+// SESSION — CONFIGURAÇÃO CORRETA PARA STEAM OPENID
 // ==================================================
 
 app.use(
@@ -38,17 +35,17 @@ app.use(
     secret: env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    proxy: true, // 🔑 CRÍTICO para proxy HTTPS
+    proxy: true,
     cookie: {
-      secure: true,        // 🔑 HTTPS obrigatório
+      secure: true,        // HTTPS
       httpOnly: true,
-      sameSite: "none"     // 🔑 obrigatório para redirect Steam
+      sameSite: "lax"      // 🔑 ESSA É A CHAVE
     }
   })
 );
 
 // ==================================================
-// PASSPORT (STEAM OPENID)
+// PASSPORT
 // ==================================================
 
 app.use(passport.initialize());
@@ -58,19 +55,10 @@ app.use(passport.session());
 // ROTAS
 // ==================================================
 
-// Autenticação Steam
 app.use("/auth", authRoutes);
-
-// Criação de pagamento (InfinitePay Checkout)
 app.use("/payment", paymentRoutes);
-
-// Webhook InfinitePay
 app.use(webhookRoutes);
-
-// Fallback de verificação de pagamento
 app.use(paymentCheckRoutes);
-
-// Rotas internas (Discord Bot / Plugin Rust)
 app.use("/internal", internalRoutes);
 
 // ==================================================
