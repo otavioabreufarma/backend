@@ -1,6 +1,5 @@
 import express from "express";
-import session from "express-session";
-import FileStoreFactory from "session-file-store";
+import cookieParser from "cookie-parser";
 import passport from "./auth/steam.js";
 import env from "./config/env.js";
 
@@ -12,53 +11,43 @@ import paymentCheckRoutes from "./routes/payment.check.js";
 import internalRoutes from "./routes/internal.routes.js";
 
 const app = express();
-const FileStore = FileStoreFactory(session);
 
 // ==================================================
 // CONFIGURAÇÕES BÁSICAS
 // ==================================================
 
+// Necessário para rodar atrás do proxy HTTPS do Render
 app.set("trust proxy", 1);
+
+// Body parser
 app.use(express.json());
 
-// ==================================================
-// SESSION — CONFIGURAÇÃO CORRETA PARA STEAM OPENID
-// ==================================================
-
-app.use(
-  session({
-    name: "rust_vip_session",
-    store: new FileStore({
-      path: "./data/sessions",
-      retries: 0
-    }),
-    secret: env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    proxy: true,
-    cookie: {
-      secure: true,        // HTTPS
-      httpOnly: true,
-      sameSite: "lax"      // 🔑 ESSA É A CHAVE
-    }
-  })
-);
+// Cookies assinados (USADO NO LOGIN STEAM)
+app.use(cookieParser(env.SESSION_SECRET));
 
 // ==================================================
-// PASSPORT
+// PASSPORT (STEAM OPENID)
 // ==================================================
 
 app.use(passport.initialize());
-app.use(passport.session());
 
 // ==================================================
 // ROTAS
 // ==================================================
 
+// Autenticação Steam (fluxo sem sessão)
 app.use("/auth", authRoutes);
+
+// Criação de pagamento (InfinitePay Checkout)
 app.use("/payment", paymentRoutes);
+
+// Webhook InfinitePay
 app.use(webhookRoutes);
+
+// Fallback de verificação de pagamento
 app.use(paymentCheckRoutes);
+
+// Rotas internas (Discord Bot / Plugin Rust)
 app.use("/internal", internalRoutes);
 
 // ==================================================
